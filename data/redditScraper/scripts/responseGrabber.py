@@ -1,11 +1,10 @@
 #NOTE: runs with python2.7
-#SEE: /home/sbailey6/sbailey6/work/redditscraper/scripts/subreddit_csv_maker.py for examples of scraping an entire subreddit
 
 import numpy as np
 import urllib, json
 import datetime as dt
+import time
 
-hub_directory = "/home/sbailey6/Desktop/textGenerator/paraphraseGen/data/AA/script/"
 comment_ids_URL = "https://api.pushshift.io/reddit/submission/comment_ids/"
 comment_extraction_URL = "https://api.pushshift.io/reddit/search/comment/?ids="
 submission_extraction_URL = "https://api.pushshift.io/reddit/search/submission/?ids="
@@ -16,6 +15,9 @@ def getPageIds():
 
     subreddit = raw_input("Enter the subreddit you want to collect data from: ")
     vocab = map(str.strip, raw_input("Enter comma separated list of words that you require in a submission's text: ").split(','))
+
+    print("--------------------------------------------------\n")
+    print("Extracting submissions with words of interest now...")
 
     total = 1001
     before_field = "0d"
@@ -36,7 +38,10 @@ def getPageIds():
                 pass
             if(j == sub_num -1):
                 before_field = str(user_data["data"][sub_num - 1]["created_utc"])
-    print("Finished extracting " + str(len(page_ids)) + " relevant submission posts from " + subreddit + "\n\n")
+
+    print("Finished extracting " + str(len(page_ids)) + " relevant submission posts from " + subreddit + "\n")
+    print("--------------------------------------------------\n")
+
     return page_ids
 
 def getImmediateResponses(page_id):
@@ -66,32 +71,40 @@ def getImmediateResponses(page_id):
 
 def main():
     page_ids = getPageIds()
+
+    print("Saving submissions with immediate responses now...\n")
+    start_time = time.time()
+
     count = 0
-    mul = 10
+    percentage = 5
     for page_id in page_ids:
         count+= 1
-        if(count*100 / len(page_ids) >= mul):
-            print(str(mul) + "%\t")
-            mul += 10
-        responses = getImmediateResponses(page_id)
-        file = open(page_id + ".txt", 'w')
-        file.write("-------original submission--------\n\n")
-        url = urllib.urlopen(submission_extraction_URL + page_id)
-        reply = json.loads(url.read().decode())["data"][0]
-        
+        if(count*100 / len(page_ids) >= percentage):
+            print(str(percentage) + "%\t" + str(time.time() - start_time) + " seconds")
+            percentage += 5
         try:
-            sub_body = reply["selftext"]
-            link = "reddit.com" + reply["permalink"]
+			responses = getImmediateResponses(page_id)
+			url = urllib.urlopen(submission_extraction_URL + page_id)
+			reply = json.loads(url.read().decode())["data"][0]
+			sub_body = reply["selftext"]
+			link = "reddit.com" + reply["permalink"]
+			url.close()
         except:
             continue
+
+    	file = open(page_id + ".txt", 'w')
+    	file.write("-------original submission--------\n\n")
+    	file.write("link: " + '' .join([i if ord(i) < 128 else ' ' for i in link.replace(u"\u2019", "'").replace(",", "").replace(r"\r\n", ".").replace("\r", ".").replace("\n", ".")]) + "\n\n")
+    	file.write('' .join([i if ord(i) < 128 else ' ' for i in sub_body.replace(u"\u2019", "'").replace(",", "").replace(r"\r\n", ".").replace("\r", ".").replace("\n", ".")]) + "\n")
+    	file.write("----------immediate responses--------\n\n")
+    	
+    	for entry in responses:
+        	file.write('' .join([i if ord(i) < 128 else ' ' for i in entry.replace(u"\u2019", "'").replace(",", "").replace(r"\r\n", ".").replace("\r", ".").replace("\n", ".")]) + "\n")
+    	file.close()
         
-        url.close()
-        file.write("link: " + '' .join([i if ord(i) < 128 else ' ' for i in link.replace(u"\u2019", "'").replace(",", "").replace(r"\r\n", ".").replace("\r", ".").replace("\n", ".")]) + "\n\n")
-        file.write('' .join([i if ord(i) < 128 else ' ' for i in sub_body.replace(u"\u2019", "'").replace(",", "").replace(r"\r\n", ".").replace("\r", ".").replace("\n", ".")]) + "\n")
-        file.write("----------immediate responses--------\n\n")
-        for entry in responses:
-            file.write('' .join([i if ord(i) < 128 else ' ' for i in entry.replace(u"\u2019", "'").replace(",", "").replace(r"\r\n", ".").replace("\r", ".").replace("\n", ".")]) + "\n")
-        file.close()
     print("\n")
+
+    print("Extraction of immediate responses complete, terminating script\n")
+    print("--------------------------------------------------")
 main()
     
